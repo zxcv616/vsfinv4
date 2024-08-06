@@ -1,0 +1,113 @@
+import pandas as pd
+from .machine_learning_model import MachineLearningModel
+
+
+
+
+class PredictionModel:
+    def __init__(self, data):
+        self.data = data
+        self.ml_model = MachineLearningModel(data)
+        self.ml_model.train_model()
+        self.weights = {
+            "SMA": 1.0,
+            "RSI": 1.2,
+            "MACD": 1.5,
+            "Bollinger Bands": 1.1,
+            "ADX": 1.3,
+            "Machine Learning": 2.0
+        }
+        self.thresholds = {
+            "SMA": {"middle": 0, "high": 1, "low": -1},
+            "RSI": {"middle": 50, "high": 70, "low": 30},
+            "MACD": {"middle": 0, "high": 1, "low": -1},
+            "Bollinger Bands": {"middle": 0, "high": 1, "low": -1},
+            "ADX": {"middle": 25, "high": 50, "low": 20},
+        }
+
+    def calculate_weight(self, value, variable):
+        threshold = self.thresholds[variable]
+        if value > threshold["high"]:
+            weight = 2.0  # Extreme high
+        elif value > threshold["middle"]:
+            weight = 1.5  # High
+        elif value < threshold["low"]:
+            weight = 2.0  # Extreme low
+        elif value < threshold["middle"]:
+            weight = 1.5  # Low
+        else:
+            weight = 1.0  # Middle
+        return weight
+
+    def simple_moving_average_strategy(self):
+        sma_signal = self.data['Close'] > self.data['SMA_20']
+        value = (self.data['Close'] - self.data['SMA_20']).iloc[-1]
+        weight = self.calculate_weight(value, "SMA")
+        recommendation = 1 if sma_signal.iloc[-1] else -1
+        reason = f"SMA Strategy: {'Buy' if sma_signal.iloc[-1] else 'Sell'} based on SMA_20."
+        return recommendation * weight, reason
+
+    def rsi_strategy(self):
+        rsi_signal = self.data['RSI'] < 30
+        value = self.data['RSI'].iloc[-1]
+        weight = self.calculate_weight(value, "RSI")
+        recommendation = 1 if rsi_signal.iloc[-1] else -1
+        reason = f"RSI Strategy: {'Buy' if rsi_signal.iloc[-1] else 'Sell'} based on RSI."
+        return recommendation * weight, reason
+
+    def macd_strategy(self):
+        macd_signal = self.data['MACD'] > self.data['Signal Line']
+        value = (self.data['MACD'] - self.data['Signal Line']).iloc[-1]
+        weight = self.calculate_weight(value, "MACD")
+        recommendation = 1 if macd_signal.iloc[-1] else -1
+        reason = f"MACD Strategy: {'Buy' if macd_signal.iloc[-1] else 'Sell'} based on MACD."
+        return recommendation * weight, reason
+
+    def bollinger_bands_strategy(self):
+        bb_signal = self.data['Close'] < self.data['BB_Lower']
+        value = (self.data['Close'] - self.data['BB_Lower']).iloc[-1]
+        weight = self.calculate_weight(value, "Bollinger Bands")
+        recommendation = 1 if bb_signal.iloc[-1] else -1
+        reason = f"Bollinger Bands Strategy: {'Buy' if bb_signal.iloc[-1] else 'Sell'} based on Bollinger Bands."
+        return recommendation * weight, reason
+
+    def adx_strategy(self):
+        adx_signal = self.data['ADX'] > 25
+        value = self.data['ADX'].iloc[-1]
+        weight = self.calculate_weight(value, "ADX")
+        recommendation = 1 if adx_signal.iloc[-1] else -1
+        reason = f"ADX Strategy: {'Buy' if adx_signal.iloc[-1] else 'Sell'} based on ADX."
+        return recommendation * weight, reason
+
+    def combined_strategy(self):
+        sma_recommendation, sma_reason = self.simple_moving_average_strategy()
+        rsi_recommendation, rsi_reason = self.rsi_strategy()
+        macd_recommendation, macd_reason = self.macd_strategy()
+        bb_recommendation, bb_reason = self.bollinger_bands_strategy()
+        adx_recommendation, adx_reason = self.adx_strategy()
+        ml_recommendation = self.ml_model.predict(self.data.drop(columns=['Close']).iloc[-1].values.reshape(1, -1))
+
+        ml_recommendation = 1 if ml_recommendation == 1 else -1
+        ml_weight = self.weights["Machine Learning"]
+
+        weighted_sum = (
+            sma_recommendation +
+            rsi_recommendation +
+            macd_recommendation +
+            bb_recommendation +
+            adx_recommendation +
+            ml_recommendation * ml_weight
+        )
+
+        final_recommendation = "Buy" if weighted_sum > 0 else "Sell"
+
+        reasons = {
+            "SMA": sma_reason,
+            "RSI": rsi_reason,
+            "MACD": macd_reason,
+            "Bollinger Bands": bb_reason,
+            "ADX": adx_reason,
+            "Machine Learning": f"ML Model: {'Buy' if ml_recommendation == 1 else 'Sell'} based on trained model."
+        }
+
+        return final_recommendation, reasons

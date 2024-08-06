@@ -1,0 +1,254 @@
+just incase everything goes apeshit and i need to restore to old modules
+
+#stockdata:
+import tkinter as tk
+from tkinter import ttk
+from ttkthemes import ThemedTk
+from data.stock_data import StockData
+from models.prediction_model import PredictionModel
+from models.backtesting import Backtesting
+
+class StockApp:
+    def __init__(self):
+        self.root = ThemedTk(theme="arc")
+        self.root.title("Stock Analysis App")
+        self.root.geometry("800x600")
+        self.root.resizable(False, False)  # Make the size fixed
+
+        # Set color scheme
+        self.root.configure(bg="#1c1c1c")
+
+        self.create_widgets()
+
+    def create_widgets(self):
+        # Configure style
+        style = ttk.Style()
+        style.theme_use("clam")
+
+        style.configure("TLabel", background="#1c1c1c", foreground="#e0e0e0", font=("Helvetica", 10))
+        style.configure("TButton", background="#333333", foreground="#e0e0e0", font=("Helvetica", 10))
+        style.map("TButton", background=[("active", "#555555")])
+        style.configure("TFrame", background="#1c1c1c", padding="10 10 10 10")
+        style.configure("TEntry", fieldbackground="#333333", foreground="#e0e0e0", padding="5 5 5 5")
+        style.configure("TLabelFrame", background="#1c1c1c", foreground="#e0e0e0")
+
+        # Create notebook for tabs
+        self.notebook = ttk.Notebook(self.root)
+        self.notebook.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
+
+        # Add tabs
+        self.analysis_tab = ttk.Frame(self.notebook, style="TFrame")
+        self.backtesting_tab = ttk.Frame(self.notebook, style="TFrame")
+        self.notebook.add(self.analysis_tab, text="Stock Analysis")
+        self.notebook.add(self.backtesting_tab, text="Backtesting")
+
+        # Configure the grid
+        self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(0, weight=1)
+
+        self.notebook.columnconfigure(0, weight=1)
+        self.notebook.rowconfigure(0, weight=1)
+
+        # Create widgets for analysis tab
+        self.create_analysis_widgets()
+
+        # Create widgets for backtesting tab
+        self.create_backtesting_widgets()
+
+    def create_analysis_widgets(self):
+        # Stock ticker input
+        ticker_frame = ttk.Frame(self.analysis_tab, style="TFrame")
+        ticker_frame.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
+        self.ticker_label = ttk.Label(ticker_frame, text="Enter Stock Ticker:", style="TLabel")
+        self.ticker_label.grid(row=0, column=0, sticky=tk.W, padx=5)
+        self.ticker_entry = ttk.Entry(ticker_frame, width=20)
+        self.ticker_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=5)
+
+        # Analyze button
+        self.analyze_button = ttk.Button(self.analysis_tab, text="Analyze", command=self.analyze_stock, style="TButton")
+        self.analyze_button.grid(row=1, column=0, columnspan=2, pady=10, sticky=(tk.W, tk.E))
+
+        # Result and reason display
+        result_frame = ttk.Frame(self.analysis_tab, style="TFrame")
+        result_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
+        self.result_label = ttk.Label(result_frame, text="", font=("Helvetica", 12, "bold"), style="TLabel")
+        self.result_label.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
+
+        self.reason_label_sma = ttk.Label(result_frame, text="", wraplength=300, style="TLabel")
+        self.reason_label_sma.grid(row=1, column=0, sticky=(tk.W, tk.E), padx=5, pady=2)
+
+        self.reason_label_rsi = ttk.Label(result_frame, text="", wraplength=300, style="TLabel")
+        self.reason_label_rsi.grid(row=2, column=0, sticky=(tk.W, tk.E), padx=5, pady=2)
+
+        self.reason_label_macd = ttk.Label(result_frame, text="", wraplength=300, style="TLabel")
+        self.reason_label_macd.grid(row=3, column=0, sticky=(tk.W, tk.E), padx=5, pady=2)
+
+        self.reason_label_bb = ttk.Label(result_frame, text="", wraplength=300, style="TLabel")
+        self.reason_label_bb.grid(row=4, column=0, sticky=(tk.W, tk.E), padx=5, pady=2)
+
+        self.reason_label_adx = ttk.Label(result_frame, text="", wraplength=300, style="TLabel")
+        self.reason_label_adx.grid(row=5, column=0, sticky=(tk.W, tk.E), padx=5, pady=2)
+
+        self.reason_label_ml = ttk.Label(result_frame, text="", wraplength=300, style="TLabel")
+        self.reason_label_ml.grid(row=6, column=0, sticky=(tk.W, tk.E), padx=5, pady=2)
+
+    def create_backtesting_widgets(self):
+        # Backtesting explanation
+        explanation_label = ttk.Label(self.backtesting_tab, text="Backtest your strategies with historical data.", font=("Helvetica", 12), style="TLabel")
+        explanation_label.grid(row=0, column=0, columnspan=2, pady=10, padx=10, sticky=(tk.W, tk.E))
+
+        # Start backtesting button
+        self.backtest_button = ttk.Button(self.backtesting_tab, text="Start Backtesting", command=self.start_backtesting, style="TButton")
+        self.backtest_button.grid(row=1, column=0, columnspan=2, pady=10, padx=10, sticky=(tk.W, tk.E))
+
+        # Backtesting results display
+        self.backtest_results_text = tk.Text(self.backtesting_tab, wrap=tk.WORD, width=70, height=20, bg="#333333", fg="#e0e0e0")
+        self.backtest_results_text.grid(row=2, column=0, columnspan=2, pady=10, padx=10, sticky=(tk.W, tk.E))
+
+    def analyze_stock(self):
+        ticker = self.ticker_entry.get()
+        stock_data = StockData(ticker)
+        stock_data.fetch_data()
+        data = stock_data.preprocess_data()
+        stock_data.calculate_indicators()
+
+        prediction_model = PredictionModel(data)
+        final_recommendation, reasons = prediction_model.combined_strategy()
+
+        self.result_label.config(text=f"Final Recommendation: {final_recommendation}")
+        self.reason_label_sma.config(text=f"SMA: {reasons['SMA']}")
+        self.reason_label_rsi.config(text=f"RSI: {reasons['RSI']}")
+        self.reason_label_macd.config(text=f"MACD: {reasons['MACD']}")
+        self.reason_label_bb.config(text=f"Bollinger Bands: {reasons['Bollinger Bands']}")
+        self.reason_label_adx.config(text=f"ADX: {reasons['ADX']}")
+        self.reason_label_ml.config(text=f"Machine Learning: {reasons['Machine Learning']}")
+
+    def start_backtesting(self):
+        # Example backtesting logic
+        stock_data = StockData("AAPL")  # Example ticker
+        stock_data.fetch_data()
+        data = stock_data.preprocess_data()
+        stock_data.calculate_indicators()
+
+        backtesting = Backtesting(data)
+        backtest_results = backtesting.backtest_strategy(PredictionModel(data).combined_strategy)
+        performance_metrics = backtesting.calculate_performance_metrics(backtest_results)
+
+        # Display backtest results
+        self.backtest_results_text.delete(1.0, tk.END)
+        self.backtest_results_text.insert(tk.END, f"Backtest Results:\n{backtest_results}\n")
+        self.backtest_results_text.insert(tk.END, f"\nPerformance Metrics:\n{performance_metrics}\n")
+
+    def run(self):
+        self.root.mainloop()
+
+# Run the application
+if __name__ == "__main__":
+    app = StockApp()
+    app.run()
+
+
+
+
+#prediction model:
+import pandas as pd
+from .machine_learning_model import MachineLearningModel
+
+class PredictionModel:
+    def __init__(self, data):
+        self.data = data
+        self.ml_model = MachineLearningModel(data)
+        self.ml_model.train_model()
+
+    def simple_moving_average_strategy(self):
+        sma_signal = self.data['Close'] > self.data['SMA_20']
+        recommendation = "Buy" if sma_signal.iloc[-1] else "Sell"
+        reason = f"SMA Strategy: {'Buy' if sma_signal.iloc[-1] else 'Sell'} based on SMA_20."
+        return recommendation, reason
+
+    def rsi_strategy(self):
+        rsi_signal = self.data['RSI'] < 30
+        recommendation = "Buy" if rsi_signal.iloc[-1] else "Sell"
+        reason = f"RSI Strategy: {'Buy' if rsi_signal.iloc[-1] else 'Sell'} based on RSI."
+        return recommendation, reason
+
+    def macd_strategy(self):
+        macd_signal = self.data['MACD'] > self.data['Signal Line']
+        recommendation = "Buy" if macd_signal.iloc[-1] else "Sell"
+        reason = f"MACD Strategy: {'Buy' if macd_signal.iloc[-1] else 'Sell'} based on MACD."
+        return recommendation, reason
+
+    def bollinger_bands_strategy(self):
+        bb_signal = self.data['Close'] < self.data['BB_Lower']
+        recommendation = "Buy" if bb_signal.iloc[-1] else "Sell"
+        reason = f"Bollinger Bands Strategy: {'Buy' if bb_signal.iloc[-1] else 'Sell'} based on Bollinger Bands."
+        return recommendation, reason
+
+    def adx_strategy(self):
+        adx_signal = self.data['ADX'] > 25
+        recommendation = "Buy" if adx_signal.iloc[-1] else "Sell"
+        reason = f"ADX Strategy: {'Buy' if adx_signal.iloc[-1] else 'Sell'} based on ADX."
+        return recommendation, reason
+
+    def combined_strategy(self):
+        sma_recommendation, sma_reason = self.simple_moving_average_strategy()
+        rsi_recommendation, rsi_reason = self.rsi_strategy()
+        macd_recommendation, macd_reason = self.macd_strategy()
+        bb_recommendation, bb_reason = self.bollinger_bands_strategy()
+        adx_recommendation, adx_reason = self.adx_strategy()
+        ml_recommendation = self.ml_model.predict()
+
+        recommendations = [sma_recommendation, rsi_recommendation, macd_recommendation, bb_recommendation, adx_recommendation, ml_recommendation]
+        final_recommendation = "Buy" if recommendations.count("Buy") > recommendations.count("Sell") else "Sell"
+
+        reasons = {
+            "SMA": sma_reason,
+            "RSI": rsi_reason,
+            "MACD": macd_reason,
+            "Bollinger Bands": bb_reason,
+            "ADX": adx_reason,
+            "Machine Learning": f"ML Model: {ml_recommendation} based on trained model."
+        }
+
+        return final_recommendation, reasons
+
+
+
+
+
+
+
+#machine_learning_model:
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+class MachineLearningModel:
+    def __init__(self, data):
+        self.data = data
+        self.model = RandomForestClassifier(n_estimators=100, random_state=42)
+
+    def prepare_data(self):
+        self.data['Target'] = (self.data['Close'].shift(-1) > self.data['Close']).astype(int)
+        features = ['SMA_20', 'EMA_20', 'RSI', 'MACD', 'Signal Line', 'BB_Middle', 'BB_Upper', 'BB_Lower', 'ADX']
+        X = self.data[features].dropna()
+        y = self.data['Target'].loc[X.index]
+        return X, y
+
+    def train_model(self):
+        X, y = self.prepare_data()
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        self.model.fit(X_train, y_train)
+        y_pred = self.model.predict(X_test)
+        accuracy = accuracy_score(y_test, y_pred)
+        print(f"Model Accuracy: {accuracy}")
+
+    def predict(self):
+        X, _ = self.prepare_data()
+        X = X.iloc[-1:].dropna()
+        if not X.empty:
+            prediction = self.model.predict(X)[0]
+            return "Buy" if prediction == 1 else "Sell"
+        else:
+            return "N/A"
